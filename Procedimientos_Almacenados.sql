@@ -179,19 +179,19 @@ CREATE PROCEDURE ps_cancelar_pedido(
     IN p_pedido_id INT
 )
 BEGIN
-    -- Validación: verificar que el pedido exista
+   
     IF NOT EXISTS (SELECT 1 FROM pedido WHERE id = p_pedido_id) THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El pedido no existe.';
     END IF;
 
-    -- Cancelar pedido
+    
     UPDATE pedido SET estado = 'Cancelado' WHERE id = p_pedido_id;
 
-    -- Eliminar detalles y factura asociados
+   
     DELETE FROM detalle_pedido WHERE pedido_id = p_pedido_id;
     DELETE FROM factura WHERE pedido_id = p_pedido_id;
 
-    -- Mostrar resumen del pedido cancelado
+   
     SELECT 
         cl.nombre AS Cliente,
         mp.nombre AS Metodo_Pago,
@@ -206,3 +206,48 @@ DELIMITER ;
 
 CALL ps_cancelar_pedido(1);
 
+
+--5. ps_facturar_pedido --
+
+DELIMITER $$
+
+DROP PROCEDURE IF EXISTS ps_facturar_pedido $$
+
+CREATE PROCEDURE ps_facturar_pedido(
+    IN p_pedido_id INT
+)
+BEGIN
+    DECLARE v_factura_id INT;
+    DECLARE v_total DECIMAL(10,2);
+    DECLARE v_cliente_id INT;
+
+   
+    IF NOT EXISTS (SELECT 1 FROM pedido WHERE id = p_pedido_id) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El pedido no existe.';
+    END IF;
+
+    -
+    SELECT SUM(dp.cantidad * pp.precio)
+    INTO v_total
+    FROM detalle_pedido dp
+    JOIN producto_presentacion pp ON pp.id = dp.producto_presentacion_id
+    WHERE dp.pedido_id = p_pedido_id;
+
+   
+    SELECT cliente_id INTO v_cliente_id
+    FROM pedido
+    WHERE id = p_pedido_id;
+
+    
+    INSERT INTO factura (total, fecha, pedido_id, cliente_id)
+    VALUES (v_total, NOW(), p_pedido_id, v_cliente_id);
+    
+    SET v_factura_id = LAST_INSERT_ID();
+
+   
+    SELECT * FROM factura WHERE id = v_factura_id;
+END $$
+
+DELIMITER ;
+
+CALL ps_facturar_pedido(3);
