@@ -151,3 +151,37 @@ BEGIN
 END $$
 DELIMITER ;
 
+-- 10.`fc_es_pizza_popular`--
+
+DELIMITER $$
+
+DROP FUNCTION IF EXISTS fn_es_pizza_popular $$
+
+CREATE FUNCTION fn_es_pizza_popular(
+    p_producto_id INT
+)
+RETURNS BIT
+NOT DETERMINISTIC
+READS SQL DATA
+BEGIN
+    DECLARE v_total_vendido INT DEFAULT 0;
+
+    
+    IF NOT EXISTS (
+        SELECT 1 FROM producto WHERE id = p_producto_id
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El producto seleccionado no existe.';
+    END IF;
+
+   
+    SELECT IFNULL(SUM(dp.cantidad), 0)
+    INTO v_total_vendido
+    FROM detalle_pedido dp
+    JOIN producto_presentacion pp ON pp.id = dp.producto_presentacion_id
+    WHERE pp.producto_id = p_producto_id;
+
+    
+    RETURN v_total_vendido > 50;
+END $$
+DELIMITER ;
