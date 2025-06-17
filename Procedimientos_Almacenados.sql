@@ -168,3 +168,41 @@ END$$
 DELIMITER ;
 
 CALL ps_generar_pedido(2, 3, 2);
+
+-- 4. ps_cancelar_pedido --
+
+DELIMITER $$
+
+DROP PROCEDURE IF EXISTS ps_cancelar_pedido $$
+
+CREATE PROCEDURE ps_cancelar_pedido(
+    IN p_pedido_id INT
+)
+BEGIN
+    -- Validación: verificar que el pedido exista
+    IF NOT EXISTS (SELECT 1 FROM pedido WHERE id = p_pedido_id) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El pedido no existe.';
+    END IF;
+
+    -- Cancelar pedido
+    UPDATE pedido SET estado = 'Cancelado' WHERE id = p_pedido_id;
+
+    -- Eliminar detalles y factura asociados
+    DELETE FROM detalle_pedido WHERE pedido_id = p_pedido_id;
+    DELETE FROM factura WHERE pedido_id = p_pedido_id;
+
+    -- Mostrar resumen del pedido cancelado
+    SELECT 
+        cl.nombre AS Cliente,
+        mp.nombre AS Metodo_Pago,
+        pe.estado AS Estado
+    FROM pedido pe
+    JOIN cliente cl ON cl.id = pe.cliente_id
+    JOIN metodo_pago mp ON mp.id = pe.metodo_pago_id
+    WHERE pe.id = p_pedido_id;
+END $$
+
+DELIMITER ;
+
+CALL ps_cancelar_pedido(1);
+
