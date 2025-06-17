@@ -77,4 +77,45 @@ BEGIN
 END $$
 DELIMITER ;
 
+-- 8.`fc_precio_final_pedido`--
+
+DELIMITER $$
+
+DROP FUNCTION IF EXISTS fn_precio_final_pedido $$
+
+CREATE FUNCTION fn_precio_final_pedido(
+    p_pedido_id INT
+)
+RETURNS DECIMAL(10,2)
+DETERMINISTIC
+READS SQL DATA
+BEGIN
+    DECLARE v_pro_pre_id INT;
+    DECLARE v_cantidad INT;
+    DECLARE v_subtotal DECIMAL(10,2);
+    DECLARE v_total_final DECIMAL(10,2);
+
+    
+    IF NOT EXISTS (SELECT 1 FROM pedido WHERE id = p_pedido_id) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El pedido seleccionado no existe.';
+    END IF;
+
+    
+    SELECT producto_presentacion_id, cantidad
+    INTO v_pro_pre_id, v_cantidad
+    FROM detalle_pedido
+    WHERE pedido_id = p_pedido_id
+    LIMIT 1;
+
+    
+    SET v_subtotal = fn_calcular_subtotal_pizza(v_pro_pre_id);
+
+    
+    SET v_total_final = fn_descuento_por_cantidad(v_cantidad, v_subtotal);
+
+    RETURN v_total_final;
+END $$
+
+DELIMITER ;
 
