@@ -61,6 +61,9 @@ BEGIN
 END $$
 DELIMITER ;
 
+CALL ps_add_pizza_con_ingredientes('Pizza de pollo', '25000', '1,3,11,15');
+
+
 -- 2. Procedimiento que reciba `p_pizza_id` y `p_nuevo_precio` y actualice el precio.--
 
 DELIMITER $$
@@ -101,3 +104,67 @@ END$$
 DELIMITER ;
 
 CALL ps_actualizar_precio_pizza(1, 3, 14000);
+
+-- 3.ps_generar_pedido`(usar TRANSACTION) --
+
+DELIMITER $$
+
+DROP PROCEDURE IF EXISTS ps_generar_pedido $$
+
+CREATE PROCEDURE ps_generar_pedido(
+    IN p_cliente_id INT,
+    IN p_presentacion_id INT,
+    IN p_metodo_pago_id INT
+)
+BEGIN
+    DECLARE v_pedido_id INT;
+    DECLARE v_precio DECIMAL(10,2);
+
+    
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Error al generar el pedido. Verifique los datos.';
+    END;
+
+    START TRANSACTION;
+
+   
+    SELECT precio INTO v_precio
+    FROM producto_presentacion
+    WHERE id = p_presentacion_id;
+
+    IF v_precio IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'No se encontró la presentación especificada.';
+    END IF;
+
+    
+    INSERT INTO pedido (fecha_recogida, total, cliente_id, metodo_pago_id)
+    VALUES (NOW(), v_precio, p_cliente_id, p_metodo_pago_id);
+    SET v_pedido_id = LAST_INSERT_ID();
+
+    
+    INSERT INTO detalle_pedido (cantidad, pedido_id, producto_presentacion_id, tipo_combo)
+    VALUES (1, v_pedido_id, p_presentacion_id, 'Producto individual');
+
+    COMMIT;
+
+   
+    SELECT 
+        cl.nombre AS Cliente,
+        pro.nombre AS Producto,
+        pp.precio AS Precio,
+        mp.nombre AS Metodo_Pago
+    FROM pedido p
+    JOIN cliente cl ON cl.id = p.cliente_id
+    JOIN detalle_pedido dp ON dp.pedido_id = p.id
+    JOIN producto_presentacion pp ON pp.id = dp.producto_presentacion_id
+    JOIN producto pro ON pro.id = pp.producto_id
+    JOIN metodo_pago mp ON mp.id = p.metodo_pago_id
+    WHERE p.id = v_pedido_id;
+
+END$$
+
+DELIMITER ;
+
+CALL ps_generar_pedido(2, 3, 2);
