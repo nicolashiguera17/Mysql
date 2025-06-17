@@ -119,3 +119,35 @@ END $$
 
 DELIMITER ;
 
+
+-- 9. `fc_obtener_stock_ingrediente` --
+DELIMITER $$
+
+DROP FUNCTION IF EXISTS fn_obtener_stock_ingrediente $$
+
+CREATE FUNCTION fn_obtener_stock_ingrediente(
+    p_ingrediente_id INT
+)
+RETURNS INT
+DETERMINISTIC
+READS SQL DATA
+BEGIN
+    DECLARE v_stock INT;
+
+    
+    IF NOT EXISTS (
+        SELECT 1 FROM ingrediente WHERE id = p_ingrediente_id
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El ingrediente no existe.';
+    END IF;
+
+    
+    SELECT stock INTO v_stock
+    FROM ingrediente
+    WHERE id = p_ingrediente_id;
+
+    RETURN v_stock;
+END $$
+DELIMITER ;
+
